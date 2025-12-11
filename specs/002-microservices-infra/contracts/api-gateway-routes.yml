@@ -1,0 +1,177 @@
+# API Gateway Routing Contract
+# Defines how API Gateway routes requests to backend microservices
+# Technology: Traefik v3 (Docker labels or file-based configuration)
+
+version: "1.0"
+gateway: "traefik-v3"
+
+routing_rules:
+  # Story Service Routes (User Story 1 - FR-001, FR-002)
+  - name: "story-service-routes"
+    service: "story-service"
+    rules:
+      - path: "/stories"
+        methods: ["GET", "POST"]
+        middleware: ["auth", "rate-limit"]
+        target:
+          service: "story-service"
+          port: 8000
+          load_balance: "round-robin"
+        description: "List and create stories"
+
+      - path: "/stories/{id}"
+        methods: ["GET", "PUT", "DELETE"]
+        middleware: ["auth"]
+        target:
+          service: "story-service"
+          port: 8000
+        description: "CRUD operations on individual stories"
+
+      - path: "/stories/{id}/personalize"
+        methods: ["POST"]
+        middleware: ["auth", "rate-limit"]
+        target:
+          service: "story-service"
+          port: 8000
+        description: "Trigger face-swap personalization"
+
+  # Payment Service Routes (User Story 1)
+  - name: "payment-service-routes"
+    service: "payment-service"
+    rules:
+      - path: "/subscriptions/purchase"
+        methods: ["POST"]
+        middleware: ["auth", "rate-limit"]
+        target:
+          service: "payment-service"
+          port: 8002
+        description: "Process subscription purchase"
+
+      - path: "/subscriptions/check"
+        methods: ["GET"]
+        middleware: ["auth"]
+        target:
+          service: "payment-service"
+          port: 8002
+        description: "Check user subscription status"
+
+  # Photo Processing Service Routes
+  - name: "photo-service-routes"
+    service: "photo-service"
+    rules:
+      - path: "/photos/upload"
+        methods: ["POST"]
+        middleware: ["auth", "rate-limit-strict"]
+        target:
+          service: "photo-service"
+          port: 8001
+          timeout: "30s"  # Photo processing takes longer
+        description: "Upload child photo for face-swap"
+
+      - path: "/photos/{id}/status"
+        methods: ["GET"]
+        middleware: ["auth"]
+        target:
+          service: "photo-service"
+          port: 8001
+        description: "Check photo processing status"
+
+  # User Service Routes
+  - name: "user-service-routes"
+    service: "user-service"
+    rules:
+      - path: "/users/register"
+        methods: ["POST"]
+        middleware: ["rate-limit"]
+        target:
+          service: "user-service"
+          port: 8003
+        description: "User registration"
+
+      - path: "/users/login"
+        methods: ["POST"]
+        middleware: ["rate-limit"]
+        target:
+          service: "user-service"
+          port: 8003
+        description: "User authentication"
+
+      - path: "/users/{id}"
+        methods: ["GET", "PUT"]
+        middleware: ["auth"]
+        target:
+          service: "user-service"
+          port: 8003
+        description: "User profile management"
+
+# Middleware Configuration (FR-003, FR-006, FR-007)
+middleware:
+  auth:
+    type: "jwt"
+    secret_key_env: "JWT_SECRET"
+    header: "Authorization"
+    description: "Validates JWT tokens, extracts user_id"
+
+  rate-limit:
+    type: "rate-limiter"
+    requests_per_second: 10
+    burst: 20
+    description: "Standard rate limiting"
+
+  rate-limit-strict:
+    type: "rate-limiter"
+    requests_per_second: 2
+    burst: 5
+    description: "Strict rate limiting for expensive operations (photo upload)"
+
+  circuit-breaker:
+    type: "circuit-breaker"
+    threshold: 0.5  # 50% error rate triggers circuit
+    timeout: "30s"
+    description: "Prevents cascading failures (FR-035)"
+
+# High Availability Configuration (FR-033, FR-034, FR-036)
+high_availability:
+  min_instances: 2
+  load_balancer:
+    algorithm: "round-robin"
+    health_check:
+      path: "/health"
+      interval: "10s"
+      timeout: "2s"
+      unhealthy_threshold: 3
+      healthy_threshold: 2
+  auto_scaling:
+    enabled: true
+    min_replicas: 2
+    max_replicas: 10
+    target_cpu_utilization: 70
+
+# Error Handling (FR-004, FR-005)
+error_responses:
+  service_unavailable:
+    status: 503
+    body:
+      error: "Service temporarily unavailable"
+      message: "Please try again later"
+      retry_after: 30
+
+  rate_limit_exceeded:
+    status: 429
+    body:
+      error: "Too many requests"
+      message: "Rate limit exceeded. Please slow down."
+      retry_after: 60
+
+  unauthorized:
+    status: 401
+    body:
+      error: "Unauthorized"
+      message: "Valid authentication required"
+
+  internal_error:
+    status: 500
+    body:
+      error: "Internal server error"
+      message: "An unexpected error occurred"
+      # Do not expose internal details (FR-005)

@@ -1,0 +1,105 @@
+# Infrastructure Alert Rules
+# Monitors Traefik, Consul, Prometheus, and system resources
+
+groups:
+  - name: api_gateway
+    interval: 30s
+    rules:
+      # Traefik high request rate
+      - alert: TraefikHighLoad
+        expr: rate(traefik_entrypoint_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: load
+        annotations:
+          summary: "Traefik receiving high request rate"
+          description: "Entrypoint {{ $labels.entrypoint }} receiving {{ $value | humanize }} req/s."
+          action: "Monitor for capacity issues, consider scaling"
+
+      # Traefik backend errors
+      - alert: TraefikBackendErrors
+        expr: |
+          (
+            sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) by (service)
+            /
+            sum(rate(traefik_service_requests_total[5m])) by (service)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: backend_errors
+        annotations:
+          summary: "High backend error rate for {{ $labels.service }}"
+          description: "Backend {{ $labels.service }} has {{ $value | humanizePercentage }} error rate."
+          action: "Check backend service health"
+
+  - name: service_discovery
+    interval: 30s
+    rules:
+      # Consul service count drop
+      - alert: ConsulServiceCountDrop
+        expr: |
+          changes(consul_catalog_services[10m]) < -1
+        for: 2m
+        labels:
+          severity: warning
+          category: service_discovery
+        annotations:
+          summary: "Consul service count decreased"
+          description: "Number of services registered in Consul has decreased."
+          action: "Check for service deregistration or failures"
+
+  - name: system_resources
+    interval: 30s
+    rules:
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 500
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage on {{ $labels.job }}"
+          description: "{{ $labels.job }} using {{ $value | humanize }}MB of memory."
+          action: "Investigate memory leaks or increase resources"
+
+      # File descriptor usage high
+      - alert: HighFileDescriptorUsage
+        expr: (process_open_fds / process_max_fds) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High file descriptor usage on {{ $labels.job }}"
+          description: "{{ $labels.job }} using {{ $value | humanizePercentage }} of available file descriptors."
+          action: "Check for file descriptor leaks"
+
+  - name: prometheus
+    interval: 30s
+    rules:
+      # Prometheus scrape failures
+      - alert: PrometheusScrapeFailures
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: monitoring
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: "Prometheus failed to scrape {{ $labels.job }} on {{ $labels.instance }}."
+          action: "Check target availability and network connectivity"
+
+      # Prometheus high cardinality
+      - alert: PrometheusHighCardinality
+        expr: prometheus_tsdb_symbol_table_size_bytes > 100000000
+        for: 10m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Prometheus has high cardinality metrics"
+          description: "Symbol table size is {{ $value | humanize }}B, indicating high cardinality."
+          action: "Review metric labels and reduce cardinality"

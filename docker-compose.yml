@@ -1,0 +1,242 @@
+services:
+  # API Gateway (Traefik v3) - High Availability Configuration (FR-033, FR-034)
+  # Two instances for HA with round-robin load balancing
+
+  traefik-1:
+    image: traefik:v3.0
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    ports:
+      - "80:80"       # HTTP entrypoint
+      - "443:443"     # HTTPS entrypoint (for production)
+      - "${TRAEFIK_DASHBOARD_PORT:-8080}:8080"   # Dashboard
+      - "${TRAEFIK_METRICS_PORT:-8082}:8082"     # Metrics (Assuming you would also want to parameterize this)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/api-gateway/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./services/api-gateway/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - traefik-logs:/var/log/traefik
+    networks:
+      - backend
+      - observability
+    depends_on:
+      - consul
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    environment:
+      - SERVICE_ENV=${SERVICE_ENV:-development}
+    #healthcheck:
+     # test: ["CMD", "traefik", "healthcheck", "--ping"]
+     # interval: 10s
+     # timeout: 5s
+     # retries: 3
+
+  traefik-2:
+    image: traefik:v3.0
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    ports:
+      - "${TRAEFIK_DASHBOARD_2_PORT:-8081}:8080"   # Dashboard (different port for second instance)
+      - "${TRAEFIK_METRICS_2_PORT:-8083}:8082"     # Metrics (different port for second instance)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./services/api-gateway/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./services/api-gateway/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - traefik-logs-2:/var/log/traefik
+    networks:
+      - backend
+      - observability
+    depends_on:
+      - consul
+    labels:
+      - "traefik.enable=true"
+    environment:
+      - SERVICE_ENV=${SERVICE_ENV:-development}
+    #healthcheck:
+     # test: ["CMD", "traefik", "healthcheck", "--ping"]
+     # interval: 10s
+     # timeout: 5s
+     # retries: 3
+
+  # Service Discovery (Consul)
+  consul:
+    image: hashicorp/consul:latest
+    command: agent -dev -ui -client=0.0.0.0
+    ports:
+      - "${CONSUL_PORT:-8500}:8500"
+      - "8600:8600/udp"
+    networks:
+      - backend
+      - observability
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Microservices
+
+  # Story Service - manages children's stories
+  story-service:
+    build:
+      context: .
+      dockerfile: services/story-service/Dockerfile
+    ports:
+      - "${STORY_SERVICE_PORT:-8000}:8000"
+    environment:
+      - SERVICE_ENV=${SERVICE_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - POSTGRES_HOST=story-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=story_db
+      - POSTGRES_USER=${POSTGRES_USER:-kidcomic}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - TRACE_ENDPOINT=http://tempo:4317
+      - TRACING_ENABLED=true
+    # Volumes commented out to use code from image instead of host mounts
+    # volumes:
+    #   - ./services/story-service/src:/app/src:ro
+    #   - ./shared:/app/shared:ro
+    networks:
+      - backend
+      - observability
+    depends_on:
+      story-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    labels:
+      # Traefik routing configuration
+      - "traefik.enable=true"
+      # HTTP router
+      - "traefik.http.routers.story-service.rule=PathPrefix(`/stories`)"
+      - "traefik.http.routers.story-service.entrypoints=web"
+      - "traefik.http.routers.story-service.service=story-service"
+      # Service configuration
+      - "traefik.http.services.story-service.loadbalancer.server.port=8000"
+      # Health check
+      - "traefik.http.services.story-service.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.story-service.loadbalancer.healthcheck.interval=10s"
+      - "traefik.http.services.story-service.loadbalancer.healthcheck.timeout=5s"
+      # Middleware chain
+      - "traefik.http.routers.story-service.middlewares=standard-chain@file"
+      # Consul tags
+      - "consul.service=story-service"
+      - "consul.tags=version:v0.1.0,environment:development"
+    #healthcheck:
+     # test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      #interval: 10s
+      #timeout: 5s
+      #retries: 3
+      #start_period: 30s
+
+  # Story Service Database
+  story-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=story_db
+      - POSTGRES_USER=${POSTGRES_USER:-kidcomic}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - story-db-data:/var/lib/postgresql/data
+      - ./services/story-service/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    ports:
+      - "${STORY_DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kidcomic} -d story_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Observability Stack
+
+  # Prometheus (Metrics)
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./infrastructure/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/observability/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - observability
+    depends_on:
+      - consul
+
+  # Grafana (Dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./infrastructure/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    networks:
+      - observability
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  # Loki (Logs)
+  loki:
+    image: grafana/loki:latest
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./infrastructure/observability/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - observability
+
+  # Tempo (Traces)
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./infrastructure/observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_PORT:-4317}:4317"  # OTLP gRPC
+      - "${TEMPO_HTTP_PORT:-3200}:3200"  # Tempo HTTP
+    networks:
+      - observability
+
+networks:
+  backend:
+    driver: bridge
+  observability:
+    driver: bridge
+
+volumes:
+  traefik-logs:
+  traefik-logs-2:
+  consul-data:
+  story-db-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  tempo-data:

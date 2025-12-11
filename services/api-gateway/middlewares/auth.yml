@@ -1,0 +1,52 @@
+# JWT Authentication Middleware Configuration
+# Per T029 [US1]: JWT authentication middleware (FR-003)
+#
+# This middleware validates JWT tokens for protected endpoints
+# Uses forwardAuth to delegate authentication to an auth service
+
+http:
+  middlewares:
+    # JWT Authentication
+    jwt-auth:
+      forwardAuth:
+        address: "http://auth-service:8001/verify"  # Auth service validates JWT
+        authResponseHeaders:
+          - "X-User-ID"
+          - "X-User-Email"
+          - "X-User-Roles"
+        trustForwardHeader: true
+        authRequestHeaders:
+          - "Authorization"
+          - "X-Trace-ID"
+
+    # API Key Authentication (alternative for service-to-service)
+    api-key-auth:
+      forwardAuth:
+        address: "http://auth-service:8001/verify-api-key"
+        authResponseHeaders:
+          - "X-Service-ID"
+        authRequestHeaders:
+          - "X-API-Key"
+          - "X-Trace-ID"
+
+    # Public routes (no auth required)
+    public:
+      headers:
+        customRequestHeaders:
+          X-Auth-Public: "true"
+
+    # Auth chain - combines auth with other middleware
+    auth-chain:
+      chain:
+        middlewares:
+          - jwt-auth
+          - trace-propagation
+          - security-headers
+
+    # Optional auth - for endpoints that work with or without auth
+    optional-auth:
+      errors:
+        status:
+          - "401-403"
+        service: "fallback-service"
+        query: "/fallback"

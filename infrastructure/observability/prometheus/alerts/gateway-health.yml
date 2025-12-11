@@ -1,0 +1,164 @@
+# Gateway Health Alerts
+# Per T041 [US1]: Alert if <2 instances healthy (FR-033 HA requirement)
+
+groups:
+  - name: gateway_health
+    interval: 30s
+    rules:
+      # Critical: Less than 2 healthy gateway instances
+      - alert: GatewayInstancesLow
+        expr: count(up{job="traefik"} == 1) < 2
+        for: 2m
+        labels:
+          severity: critical
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway has less than 2 healthy instances"
+          description: "Only {{ $value }} Traefik instance(s) are healthy. HA requires minimum 2 instances. Check gateway health immediately."
+          runbook_url: "https://github.com/kidcomic/docs/runbooks/gateway-failover.md"
+          dashboard_url: "http://localhost:3000/d/gateway-overview"
+
+      # Warning: Gateway instance down
+      - alert: GatewayInstanceDown
+        expr: up{job="traefik"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway instance {{ $labels.instance }} is down"
+          description: "Traefik instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://github.com/kidcomic/docs/runbooks/gateway-failover.md"
+
+      # Critical: All gateway instances down
+      - alert: GatewayCompleteOutage
+        expr: count(up{job="traefik"} == 1) == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: api-gateway
+          team: platform
+          page: "true"  # Trigger pager
+        annotations:
+          summary: "CRITICAL: All API Gateway instances are down"
+          description: "Complete gateway outage detected. All Traefik instances are unreachable. Immediate action required."
+          runbook_url: "https://github.com/kidcomic/docs/runbooks/gateway-failover.md"
+          impact: "All API requests failing. Mobile app cannot access any services."
+
+      # Gateway high error rate
+      - alert: GatewayHighErrorRate
+        expr: |
+          (
+            sum(rate(traefik_service_requests_total{code=~"5.."}[5m]))
+            /
+            sum(rate(traefik_service_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway error rate above 5%"
+          description: "Gateway is returning {{ $value | humanizePercentage }} 5xx errors over the last 5 minutes. Threshold: 5%."
+          dashboard_url: "http://localhost:3000/d/gateway-overview"
+
+      # Gateway high latency (p95 > 50ms target)
+      - alert: GatewayHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(traefik_service_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway p95 latency above 50ms"
+          description: "Gateway service {{ $labels.service }} p95 latency is {{ $value | humanizeDuration }}. Target: <50ms."
+          dashboard_url: "http://localhost:3000/d/gateway-overview"
+
+      # Gateway circuit breaker triggered
+      - alert: GatewayCircuitBreakerOpen
+        expr: traefik_service_open_connections{method="circuit_breaker"} > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "Gateway circuit breaker open for {{ $labels.service }}"
+          description: "Circuit breaker is open for service {{ $labels.service }}, indicating backend service issues."
+          runbook_url: "https://github.com/kidcomic/docs/runbooks/circuit-breaker-troubleshooting.md"
+
+  - name: gateway_performance
+    interval: 30s
+    rules:
+      # High request rate (may need scaling)
+      - alert: GatewayHighRequestRate
+        expr: sum(rate(traefik_service_requests_total[5m])) > 1000
+        for: 10m
+        labels:
+          severity: info
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway handling high request rate"
+          description: "Gateway is processing {{ $value }} req/s. Consider scaling if sustained."
+          dashboard_url: "http://localhost:3000/d/gateway-overview"
+
+      # Request rate spike
+      - alert: GatewayRequestRateSpike
+        expr: |
+          (
+            sum(rate(traefik_service_requests_total[1m]))
+            /
+            sum(rate(traefik_service_requests_total[5m] offset 5m))
+          ) > 2
+        for: 5m
+        labels:
+          severity: info
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "API Gateway request rate spike detected"
+          description: "Request rate has doubled compared to 5 minutes ago. Current: {{ $value }} req/s."
+
+  - name: gateway_availability
+    interval: 30s
+    rules:
+      # Gateway SLA violation (99.9% = 43.2s downtime per 12 hours)
+      - alert: GatewaySLAViolation
+        expr: |
+          (
+            sum(rate(traefik_service_requests_total{code=~"2..|3.."}[12h]))
+            /
+            sum(rate(traefik_service_requests_total[12h]))
+          ) < 0.999
+        for: 1m
+        labels:
+          severity: critical
+          component: api-gateway
+          team: platform
+          sla: "true"
+        annotations:
+          summary: "API Gateway SLA violation (< 99.9% success rate)"
+          description: "Gateway success rate over last 12 hours: {{ $value | humanizePercentage }}. SLA target: 99.9%."
+          impact: "SLA breach. Customer impact likely."
+          dashboard_url: "http://localhost:3000/d/gateway-sla"
+
+      # Health check failures
+      - alert: GatewayHealthCheckFailing
+        expr: traefik_service_server_up == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: api-gateway
+          team: platform
+        annotations:
+          summary: "Backend service {{ $labels.service }} failing health checks"
+          description: "Gateway health checks failing for {{ $labels.service }} on {{ $labels.server }}."
+          runbook_url: "https://github.com/kidcomic/docs/runbooks/backend-service-health.md"

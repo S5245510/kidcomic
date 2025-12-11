@@ -1,0 +1,57 @@
+# Circuit Breaker Middleware Configuration
+# Per T031 [US1]: Circuit breaker middleware (FR-035, prevent cascading failures)
+#
+# Opens circuit when backend service is unhealthy to prevent cascading failures
+
+http:
+  middlewares:
+    # Standard circuit breaker
+    circuit-breaker-standard:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.30 || ResponseCodeRatio(500, 600, 0, 600) > 0.25"
+        # Open circuit if:
+        # - Network error ratio > 30% (connection failures, timeouts)
+        # - 5xx error ratio > 25%
+        checkPeriod: "10s"           # Check every 10 seconds
+        fallbackDuration: "30s"      # Stay open for 30 seconds before retry
+        recoveryDuration: "10s"      # Wait 10 seconds after success before closing
+
+    # Aggressive circuit breaker (for critical paths)
+    circuit-breaker-aggressive:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.20 || ResponseCodeRatio(500, 600, 0, 600) > 0.15"
+        checkPeriod: "5s"
+        fallbackDuration: "60s"      # Stay open longer
+        recoveryDuration: "20s"
+
+    # Lenient circuit breaker (for less critical paths)
+    circuit-breaker-lenient:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.50 || ResponseCodeRatio(500, 600, 0, 600) > 0.40"
+        checkPeriod: "20s"
+        fallbackDuration: "15s"
+        recoveryDuration: "5s"
+
+    # Fast-fail circuit breaker (for timeout-sensitive operations)
+    circuit-breaker-fast-fail:
+      circuitBreaker:
+        expression: "NetworkErrorRatio() > 0.10 || LatencyAtQuantileMS(50.0) > 1000"
+        # Open circuit if:
+        # - Network error ratio > 10%
+        # - Median latency > 1000ms
+        checkPeriod: "5s"
+        fallbackDuration: "20s"
+        recoveryDuration: "10s"
+
+    # Reliability chain - combines circuit breaker with retries
+    reliability-chain:
+      chain:
+        middlewares:
+          - circuit-breaker-standard
+          - retry-policy
+
+    # Retry policy middleware
+    retry-policy:
+      retry:
+        attempts: 3              # Retry up to 3 times
+        initialInterval: "100ms" # Wait 100ms before first retry

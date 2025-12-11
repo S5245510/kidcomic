@@ -1,0 +1,74 @@
+# Prometheus Configuration
+# Scrapes metrics from all microservices and infrastructure components
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'kidcomic-dev'
+    environment: 'development'
+
+# Alertmanager configuration (optional, for production)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Load alerting rules
+rule_files:
+  - '/etc/prometheus/alerts/*.yml'
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Consul service discovery for microservices
+  # Only scrape services with prometheus=true tag
+  - job_name: 'microservices'
+    consul_sd_configs:
+      - server: 'consul:8500'
+    relabel_configs:
+      # Only keep services with prometheus=true tag
+      - source_labels: [__meta_consul_tags]
+        regex: '.*,prometheus=true,.*'
+        action: keep
+      # Extract service name from Consul metadata
+      - source_labels: [__meta_consul_service]
+        target_label: service
+      # Extract version from Consul tags
+      - source_labels: [__meta_consul_tags]
+        regex: '.*,version:([^,]+),.*'
+        replacement: '$1'
+        target_label: version
+      # Extract environment from Consul tags
+      - source_labels: [__meta_consul_tags]
+        regex: '.*,environment:([^,]+),.*'
+        replacement: '$1'
+        target_label: environment
+      # Extract instance ID
+      - source_labels: [__meta_consul_service_id]
+        target_label: instance_id
+      # Extract metrics_path from Consul tags (format: metrics_path:/metrics/)
+      - source_labels: [__meta_consul_tags]
+        regex: '.*,metrics_path:([^,]+),.*'
+        replacement: '$1'
+        target_label: __metrics_path__
+
+  # Traefik API Gateway
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['traefik:8080']
+    metrics_path: '/metrics'
+
+  # Consul itself
+  - job_name: 'consul'
+    static_configs:
+      - targets: ['consul:8500']
+    metrics_path: '/v1/agent/metrics'
+    params:
+      format: ['prometheus']
+
+  # Note: story-service now discovered via Consul SD (microservices job)
+  # Static config removed to avoid duplicate scraping

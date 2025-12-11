@@ -1,0 +1,9 @@
+# Configuration & Infrastructure Library Dependencies
+# Minimal dependencies for Phase 3 MVP
+
+# No external dependencies needed for stub implementations
+# Future Phase 2 completion will add:
+# python-consul==1.1.0        # Consul client
+# sqlalchemy==2.0.23          # Database ORM
+# psycopg2-binary==2.9.9      # PostgreSQL adapter
+# alembic==1.13.0             # Database migrations

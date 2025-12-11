@@ -17,11 +17,11 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Language/Version**: [e.g., Python 3.11 (REQUIRED if Python used), Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
 **Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
 **Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
 **Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Target Platform**: [e.g., Web (Chrome/Edge/Firefox/Safari 90+) + Mobile (iOS 15+, Android 7.0+) or NEEDS CLARIFICATION]
 **Project Type**: [single/web/mobile - determines source structure]  
 **Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
@@ -31,7 +31,37 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Review compliance with `.specify/memory/constitution.md`:
+
+1. **Cross-Platform Readiness**: Does the design support web and mobile?
+2. **Windows Compatibility**: Can all build/test steps run on Windows?
+3. **Port Management**: Are port conflicts handled gracefully?
+4. **GPU Acceleration**: If AI models are used, is GPU enabled by default?
+5. **MCP Integration**: Are Context7 and ChromeDevTools utilized appropriately?
+6. **Test Coverage**: Are tests written and approved before implementation?
+7. **Observability**: Is structured logging and error tracing included?
+8. **Dependency Stability**: Are all dependencies stable versions with verified compatibility?
+9. **Simplicity**: Is the code simple, clear, and maintainable?
+10. **Complete Examples**: Are all code examples complete and runnable?
+11. **Modular Design**: Is the architecture modular with clear boundaries?
+12. **CI Integration**: Are CI checks configured and passing?
+13. **Milestone Versioning**: Are significant achievements committed and tagged in GitHub?
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| Cross-Platform | ⚠️/✅/❌ | [Explain web/mobile support] |
+| Windows Compat | ⚠️/✅/❌ | [Explain Windows compatibility] |
+| Port Management | ⚠️/✅/❌ | [Explain port handling strategy] |
+| GPU Acceleration | ⚠️/✅/❌/N/A | [Explain GPU usage if AI models present] |
+| MCP Integration | ⚠️/✅/❌ | [Explain Context7/ChromeDevTools usage] |
+| Test Coverage | ⚠️/✅/❌ | [Explain test-first approach] |
+| Observability | ⚠️/✅/❌ | [Explain logging/tracing strategy] |
+| Dependency Stability | ⚠️/✅/❌ | [Explain dependency versions and compatibility checks] |
+| Simplicity | ⚠️/✅/❌ | [Explain code simplicity and clarity approach] |
+| Complete Examples | ⚠️/✅/❌ | [Explain documentation with full code examples] |
+| Modular Design | ⚠️/✅/❌ | [Explain modular architecture and boundaries] |
+| CI Integration | ⚠️/✅/❌ | [Explain CI/CD pipeline configuration] |
+| Milestone Versioning | ⚠️/✅/❌ | [Explain git tagging strategy for milestones] |
 
 ## Project Structure
 

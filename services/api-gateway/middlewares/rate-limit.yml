@@ -1,0 +1,59 @@
+# Rate Limiting Middleware Configuration
+# Per T030 [US1]: Rate limiting middleware (10 req/s standard, FR-007)
+#
+# Protects services from abuse and ensures fair usage
+
+http:
+  middlewares:
+    # Standard rate limit: 10 req/s per IP (FR-007)
+    rate-limit-standard:
+      rateLimit:
+        average: 10          # 10 requests per second
+        period: "1s"
+        burst: 20            # Allow bursts up to 20 requests
+        sourceCriterion:
+          ipStrategy:
+            depth: 1         # Use client IP from X-Forwarded-For (1 proxy deep)
+
+    # Strict rate limit: 5 req/s for expensive operations
+    rate-limit-strict:
+      rateLimit:
+        average: 5
+        period: "1s"
+        burst: 10
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # Generous rate limit: 50 req/s for read-only operations
+    rate-limit-generous:
+      rateLimit:
+        average: 50
+        period: "1s"
+        burst: 100
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # Per-user rate limit (requires authentication)
+    rate-limit-per-user:
+      rateLimit:
+        average: 100         # 100 req/s per authenticated user
+        period: "1s"
+        burst: 200
+        sourceCriterion:
+          requestHeaderName: "X-User-ID"  # Use user ID from auth header
+
+    # Global rate limit (across all clients)
+    rate-limit-global:
+      rateLimit:
+        average: 1000        # 1000 req/s total
+        period: "1s"
+        burst: 2000
+
+    # Rate limit chain - apply multiple limits
+    rate-limit-chain:
+      chain:
+        middlewares:
+          - rate-limit-standard
+          - rate-limit-global

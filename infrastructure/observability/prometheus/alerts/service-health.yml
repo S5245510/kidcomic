@@ -1,0 +1,77 @@
+# Service Health Alert Rules
+# Monitors service availability and health status
+
+groups:
+  - name: service_health
+    interval: 30s
+    rules:
+      # Alert when a service is down
+      - alert: ServiceDown
+        expr: up{job=~"story-service|traefik|consul"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+          impact: "Service unavailable to users"
+          action: "Check service logs and restart if necessary"
+
+      # Alert when service health metric indicates unhealthy
+      - alert: ServiceUnhealthy
+        expr: service_health{service=~"story-service"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: health
+        annotations:
+          summary: "Service {{ $labels.service }} reports unhealthy status"
+          description: "{{ $labels.service }} health check is failing."
+          action: "Investigate service health check failures"
+
+      # Alert when service has high error rate (>5%)
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5..",service="story-service"}[5m])) by (service)
+            /
+            sum(rate(http_requests_total{service="story-service"}[5m])) by (service)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "{{ $labels.service }} has error rate > 5% for the last 5 minutes."
+          current_value: "{{ $value | humanizePercentage }}"
+          action: "Check application logs for errors"
+
+      # Alert when service latency is high (p95 > 1s)
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{service="story-service"}[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "{{ $labels.service }} 95th percentile latency is above 1 second."
+          current_value: "{{ $value | humanizeDuration }}"
+          action: "Investigate slow queries or external dependencies"
+
+      # Alert when dependency health is failing
+      - alert: DependencyUnhealthy
+        expr: service_dependency_health{service="story-service"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: dependencies
+        annotations:
+          summary: "Dependency {{ $labels.dependency }} is unhealthy"
+          description: "{{ $labels.service }} reports {{ $labels.dependency }} as unhealthy."
+          action: "Check {{ $labels.dependency }} status and connectivity"

@@ -1,0 +1,321 @@
+# API Gateway Horizontal Pod Autoscaler (HPA)
+# Per T042 [US1]: Scale 2-10 instances based on CPU 70% (FR-036)
+#
+# This configuration enables automatic scaling of Traefik gateway instances
+# to handle variable load while maintaining high availability.
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: traefik-gateway-hpa
+  namespace: default
+  labels:
+    app: traefik
+    component: api-gateway
+    tier: infrastructure
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: traefik-gateway
+
+  # Scaling bounds (FR-033: minimum 2 for HA, FR-036: max 10)
+  minReplicas: 2
+  maxReplicas: 10
+
+  # Scaling behavior
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Wait 5 minutes before scaling down
+      policies:
+        - type: Percent
+          value: 50  # Scale down by max 50% of current replicas
+          periodSeconds: 60
+        - type: Pods
+          value: 1   # Or remove 1 pod per minute
+          periodSeconds: 60
+      selectPolicy: Min  # Use the most conservative policy
+
+    scaleUp:
+      stabilizationWindowSeconds: 60  # Wait 1 minute before scaling up
+      policies:
+        - type: Percent
+          value: 100  # Can double the number of pods
+          periodSeconds: 30
+        - type: Pods
+          value: 2    # Or add 2 pods per 30 seconds
+          periodSeconds: 30
+      selectPolicy: Max  # Use the most aggressive policy
+
+  # Scaling metrics
+  metrics:
+    # Primary metric: CPU utilization (FR-036: target 70%)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # Secondary metric: Memory utilization
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+    # Custom metric: Request rate (requests per second per pod)
+    - type: Pods
+      pods:
+        metric:
+          name: traefik_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"  # Target 100 req/s per pod
+
+    # Custom metric: Response time p95
+    - type: Pods
+      pods:
+        metric:
+          name: traefik_response_time_p95_milliseconds
+        target:
+          type: AverageValue
+          averageValue: "40"  # Scale up if p95 > 40ms (buffer for 50ms target)
+
+---
+# Gateway Deployment Configuration for Kubernetes
+# Companion to HPA configuration above
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik-gateway
+  namespace: default
+  labels:
+    app: traefik
+    component: api-gateway
+    version: v3.0
+spec:
+  replicas: 2  # Initial replica count (HPA will adjust this)
+
+  selector:
+    matchLabels:
+      app: traefik
+      component: api-gateway
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Add 1 extra pod during updates
+      maxUnavailable: 0  # Never go below minReplicas during updates
+
+  template:
+    metadata:
+      labels:
+        app: traefik
+        component: api-gateway
+        version: v3.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      # Pod Anti-Affinity - spread across nodes for HA
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: traefik
+                    component: api-gateway
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: traefik
+          image: traefik:v3.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: web
+              containerPort: 80
+              protocol: TCP
+            - name: websecure
+              containerPort: 443
+              protocol: TCP
+            - name: admin
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 8082
+              protocol: TCP
+
+          # Resource limits (required for HPA CPU/memory metrics)
+          resources:
+            requests:
+              cpu: 100m      # 0.1 CPU core
+              memory: 128Mi
+            limits:
+              cpu: 500m      # 0.5 CPU core
+              memory: 512Mi
+
+          # Liveness probe (restart if unhealthy)
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # Readiness probe (remove from load balancer if not ready)
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+
+          # Volume mounts
+          volumeMounts:
+            - name: traefik-config
+              mountPath: /etc/traefik
+              readOnly: true
+            - name: traefik-middlewares
+              mountPath: /etc/traefik/conf.d
+              readOnly: true
+
+          # Environment variables
+          env:
+            - name: SERVICE_ENV
+              value: "production"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+
+      volumes:
+        - name: traefik-config
+          configMap:
+            name: traefik-config
+        - name: traefik-middlewares
+          configMap:
+            name: traefik-middlewares
+
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+
+      # Service account for RBAC
+      serviceAccountName: traefik
+
+---
+# Service for Gateway (LoadBalancer or NodePort)
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-gateway
+  namespace: default
+  labels:
+    app: traefik
+    component: api-gateway
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"  # For AWS
+    # cloud.google.com/load-balancer-type: "Internal"  # For GCP
+spec:
+  type: LoadBalancer  # Change to NodePort for on-prem clusters
+
+  selector:
+    app: traefik
+    component: api-gateway
+
+  ports:
+    - name: web
+      port: 80
+      targetPort: web
+      protocol: TCP
+    - name: websecure
+      port: 443
+      targetPort: websecure
+      protocol: TCP
+
+  sessionAffinity: None
+
+---
+# ServiceMonitor for Prometheus Operator (if using)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: traefik-gateway
+  namespace: default
+  labels:
+    app: traefik
+    component: api-gateway
+spec:
+  selector:
+    matchLabels:
+      app: traefik
+      component: api-gateway
+
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+
+---
+# PodDisruptionBudget - Ensure minimum availability during disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: traefik-gateway-pdb
+  namespace: default
+spec:
+  minAvailable: 1  # Always keep at least 1 pod running
+  selector:
+    matchLabels:
+      app: traefik
+      component: api-gateway
+
+---
+# Usage Notes:
+#
+# 1. Apply this configuration:
+#    kubectl apply -f gateway-hpa.yml
+#
+# 2. View HPA status:
+#    kubectl get hpa traefik-gateway-hpa
+#    kubectl describe hpa traefik-gateway-hpa
+#
+# 3. Watch scaling in action:
+#    kubectl get hpa traefik-gateway-hpa -w
+#
+# 4. Generate load to test scaling:
+#    kubectl run -i --tty load-generator --rm --image=busybox --restart=Never -- /bin/sh
+#    # Inside the pod:
+#    while true; do wget -q -O- http://traefik-gateway/stories/; done
+#
+# 5. Monitor pod count:
+#    kubectl get pods -l app=traefik -w
+#
+# Performance Targets (from spec):
+# - Gateway latency p95: <50ms
+# - Support 1000+ concurrent requests
+# - CPU target: 70% (FR-036)
+# - Scale range: 2-10 instances
+# - HA: Minimum 2 instances always running (FR-033)

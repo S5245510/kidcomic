@@ -1,0 +1,77 @@
+http:
+  middlewares:
+    # Trace ID propagation
+    trace-propagation:
+      headers:
+        customRequestHeaders:
+          X-Trace-ID: ""
+        customResponseHeaders:
+          X-Trace-ID: ""
+
+    # Request ID generation
+    request-id:
+      headers:
+        customRequestHeaders:
+          X-Request-ID: ""
+
+    # Security headers (v3 compatible)
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "DENY"
+          X-XSS-Protection: "1; mode=block"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+          Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+
+    # Compression
+    compression:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+        minResponseBodyBytes: 1024
+
+    # CORS
+    cors-permissive:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+          - "PATCH"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Trace-ID"
+          - "X-API-Key"
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+          - "http://localhost:8080"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 3600
+
+    # Rate limiting
+    rate-limit-standard:
+      rateLimit:
+        average: 10
+        period: "1s"
+        burst: 20
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+    # Standard middleware chain
+    standard-chain:
+      chain:
+        middlewares:
+          - trace-propagation
+          - request-id
+          - security-headers
+          - compression
+          - cors-permissive
+          - rate-limit-standard

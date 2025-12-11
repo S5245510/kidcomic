@@ -1,0 +1,112 @@
+# Common Middleware Configuration
+# Shared middleware for trace propagation, security headers, CORS, etc.
+
+http:
+  middlewares:
+    # Trace ID propagation (FR-010)
+    trace-propagation:
+      headers:
+        customRequestHeaders:
+          X-Trace-ID: "{{ .Request.Header.Get \"X-Trace-ID\" }}"
+        customResponseHeaders:
+          X-Trace-ID: "{{ .Request.Header.Get \"X-Trace-ID\" }}"
+
+    # Security headers
+    security-headers:
+      headers:
+        frameDeny: true
+        sslRedirect: false  # Enable in production
+        browserXssFilter: true
+        contentTypeNosniff: true
+        stsSeconds: 31536000  # 1 year HSTS
+        stsIncludeSubdomains: true
+        stsPreload: true
+        customResponseHeaders:
+          X-Content-Type-Options: "nosniff"
+          X-Frame-Options: "DENY"
+          X-XSS-Protection: "1; mode=block"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+          Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+
+    # CORS configuration
+    cors-permissive:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+          - "PATCH"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Trace-ID"
+          - "X-API-Key"
+        accessControlAllowOriginList:
+          - "http://localhost:3000"  # React dev server
+          - "http://localhost:8080"  # Vue dev server
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 3600
+
+    # CORS for production (stricter)
+    cors-production:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+          - "X-Trace-ID"
+        accessControlAllowOriginList:
+          - "https://app.kidcomic.com"
+          - "https://kidcomic.com"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 86400
+
+    # Request ID generation
+    request-id:
+      headers:
+        customRequestHeaders:
+          X-Request-ID: "{{ .Request.Header.Get \"X-Request-ID\" }}"
+
+    # Compression
+    compression:
+      compress:
+        excludedContentTypes:
+          - "text/event-stream"
+        minResponseBodyBytes: 1024
+
+    # Buffering
+    buffering:
+      buffering:
+        maxRequestBodyBytes: 10485760  # 10MB
+        memRequestBodyBytes: 2097152   # 2MB
+        maxResponseBodyBytes: 10485760 # 10MB
+        memResponseBodyBytes: 2097152  # 2MB
+
+    # Standard middleware chain
+    standard-chain:
+      chain:
+        middlewares:
+          - trace-propagation
+          - request-id
+          - security-headers
+          - compression
+          - cors-permissive
+          - rate-limit-standard
+
+    # Production middleware chain
+    production-chain:
+      chain:
+        middlewares:
+          - trace-propagation
+          - request-id
+          - security-headers
+          - compression
+          - cors-production
+          - rate-limit-standard
+          - circuit-breaker-standard
