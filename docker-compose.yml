@@ -180,6 +180,27 @@ services:
     depends_on:
       - consul
 
+  # Alertmanager (Alert Routing)
+  alertmanager:
+    image: prom/alertmanager:latest
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./infrastructure/observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    networks:
+      - observability
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - PAGERDUTY_SERVICE_KEY=${PAGERDUTY_SERVICE_KEY:-}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO:-}
+      - SMTP_SERVER=${SMTP_SERVER:-}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+
   # Grafana (Dashboards)
   grafana:
     image: grafana/grafana:latest
@@ -237,6 +258,7 @@ volumes:
   consul-data:
   story-db-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
   loki-data:
   tempo-data:

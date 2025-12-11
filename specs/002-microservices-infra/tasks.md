@@ -144,34 +144,34 @@ Per plan.md Project Structure:
 
 ### Observability Stack Deployment
 
-- [ ] T051 [P] [US2] Add Prometheus service to docker-compose.yml (prom/prometheus:latest, scrape config, 90-day retention per FR-013)
-- [ ] T052 [P] [US2] Add Grafana service to docker-compose.yml (grafana/grafana:latest, datasources, dashboards)
-- [ ] T053 [P] [US2] Add Loki service to docker-compose.yml (grafana/loki:latest, 30-day retention per FR-013)
-- [ ] T054 [P] [US2] Add Tempo service to docker-compose.yml (grafana/tempo:latest, OTLP receiver, 30-day retention per FR-013)
+- [x] T051 [P] [US2] Add Prometheus service to docker-compose.yml (prom/prometheus:latest, scrape config, 90-day retention per FR-013) - DEPLOYED PHASE 1
+- [x] T052 [P] [US2] Add Grafana service to docker-compose.yml (grafana/grafana:latest, datasources, dashboards) - DEPLOYED PHASE 1
+- [x] T053 [P] [US2] Add Loki service to docker-compose.yml (grafana/loki:latest, 30-day retention per FR-013) - DEPLOYED PHASE 1
+- [x] T054 [P] [US2] Add Tempo service to docker-compose.yml (grafana/tempo:latest, OTLP receiver, 30-day retention per FR-013) - DEPLOYED PHASE 1
 
 ### Prometheus Configuration (FR-011, FR-012)
 
-- [ ] T055 [US2] Configure Prometheus scrape targets in infrastructure/observability/prometheus/prometheus.yml (scrape all services at /metrics every 15s)
-- [ ] T056 [US2] Configure Prometheus alerting rules in infrastructure/observability/prometheus/alerts/service-health.yml (high error rate >5%, high latency >500ms p95, service down)
+- [x] T055 [US2] Configure Prometheus scrape targets in infrastructure/observability/prometheus/prometheus.yml (scrape all services at /metrics every 15s) - CONFIGURED PHASE 3
+- [x] T056 [US2] Configure Prometheus alerting rules in infrastructure/observability/prometheus/alerts/service-health.yml (high error rate >5%, high latency >500ms p95, service down) - CONFIGURED PHASE 3
 - [ ] T057 [US2] Configure Prometheus recording rules in infrastructure/observability/prometheus/rules/recording-rules.yml (pre-aggregate common queries)
 
 ### Grafana Dashboards (FR-011, FR-014)
 
-- [ ] T058 [P] [US2] Create Microservices Overview dashboard in infrastructure/observability/grafana/dashboards/microservices-overview.json (request rates, error rates, latencies per service)
+- [x] T058 [P] [US2] Create Microservices Overview dashboard in infrastructure/observability/grafana/dashboards/microservices-overview.json (request rates, error rates, latencies per service) - COMPLETED PHASE 4
 - [ ] T059 [P] [US2] Create Service Dependencies dashboard in infrastructure/observability/grafana/dashboards/service-dependencies.json (dependency health, call latency)
-- [ ] T060 [P] [US2] Create Logs Explorer dashboard in infrastructure/observability/grafana/dashboards/logs-explorer.json (search by trace_id, user_id, service, error type per FR-015)
+- [x] T060 [P] [US2] Create Logs Explorer dashboard in infrastructure/observability/grafana/dashboards/logs-explorer.json (search by trace_id, user_id, service, error type per FR-015) - COMPLETED PHASE 4
 - [ ] T061 [P] [US2] Create Distributed Traces dashboard in infrastructure/observability/grafana/dashboards/traces.json (Tempo integration, trace search, flamegraphs)
 
 ### Service Instrumentation
 
-- [ ] T062 [US2] Update Story Service to emit Prometheus metrics in services/story-service/src/main.py (REQUEST_COUNT, REQUEST_LATENCY, ACTIVE_REQUESTS)
-- [ ] T063 [US2] Update Story Service to emit structured logs in services/story-service/src/main.py (JSON format with trace_id, user_id, duration_ms per contracts/observability-contract.md)
-- [ ] T064 [US2] Update Story Service to emit distributed traces in services/story-service/src/main.py (OpenTelemetry spans with trace_id propagation)
-- [ ] T065 [US2] Expose /metrics endpoint in Story Service at port 9090 for Prometheus scraping
+- [x] T062 [US2] Update Story Service to emit Prometheus metrics in services/story-service/src/main.py (REQUEST_COUNT, REQUEST_LATENCY, ACTIVE_REQUESTS) - COMPLETED PHASE 3
+- [x] T063 [US2] Update Story Service to emit structured logs in services/story-service/src/main.py (JSON format with trace_id, user_id, duration_ms per contracts/observability-contract.md) - COMPLETED PHASE 3
+- [x] T064 [US2] Update Story Service to emit distributed traces in services/story-service/src/main.py (OpenTelemetry spans with trace_id propagation) - COMPLETED PHASE 3
+- [x] T065 [US2] Expose /metrics endpoint in Story Service at port 9090 for Prometheus scraping - COMPLETED PHASE 3
 
 ### Alerting Configuration (FR-012)
 
-- [ ] T066 [US2] Configure Alertmanager in infrastructure/observability/alertmanager/alertmanager.yml (route alerts to Slack/PagerDuty/email)
+- [x] T066 [US2] Configure Alertmanager in infrastructure/observability/alertmanager/alertmanager.yml (route alerts to Slack/PagerDuty/email) - COMPLETED PHASE 4
 - [ ] T067 [US2] Test high error rate alert (trigger >5% errors, verify alert fires within 2 minutes)
 - [ ] T068 [US2] Test high latency alert (trigger >500ms p95, verify alert fires within 5 minutes)
 

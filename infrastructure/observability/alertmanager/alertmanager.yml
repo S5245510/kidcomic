@@ -1,0 +1,122 @@
+# Alertmanager Configuration
+# Routes alerts from Prometheus to notification channels (Slack, PagerDuty, Email)
+# Per FR-012: Alert on high error rates, high latency, service down
+
+global:
+  # Global defaults
+  resolve_timeout: 5m
+
+# Route tree for alert routing
+route:
+  # Default receiver for all alerts
+  receiver: 'default'
+
+  # Group alerts by these labels to reduce notification spam
+  group_by: ['alertname', 'cluster', 'service']
+
+  # Wait before sending first notification (allow grouping)
+  group_wait: 10s
+
+  # Wait before sending notification about new alerts added to group
+  group_interval: 10s
+
+  # Wait before sending notification about resolved alerts
+  repeat_interval: 12h
+
+  # Child routes (more specific routing rules)
+  routes:
+    # Critical alerts (service down) -> PagerDuty
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      continue: true  # Also send to default
+
+    # High priority alerts -> Slack + Email
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+
+    # Info alerts -> Slack only
+    - match:
+        severity: info
+      receiver: 'slack-info'
+
+# Inhibition rules (suppress certain alerts when others are firing)
+inhibit_rules:
+  # Suppress warning if critical alert for same service
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+  # Suppress individual service alerts if entire cluster is down
+  - source_match:
+      alertname: 'ClusterDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['cluster']
+
+# Receivers (notification destinations)
+receivers:
+  # Default receiver (logs only, for development)
+  - name: 'default'
+    # No actual notification, just logs
+
+  # Slack receiver for warnings (configure SLACK_WEBHOOK_URL in .env to enable)
+  - name: 'slack-warnings'
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts-warnings'
+    #     title: '⚠️ Warning Alert'
+    #     text: |
+    #       *Alert:* {{ .GroupLabels.alertname }}
+    #       *Service:* {{ .GroupLabels.service }}
+    #       *Summary:* {{ .CommonAnnotations.summary }}
+    #       *Description:* {{ .CommonAnnotations.description }}
+    #     send_resolved: true
+
+  # Slack receiver for info (configure SLACK_WEBHOOK_URL in .env to enable)
+  - name: 'slack-info'
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts-info'
+    #     title: 'ℹ️  Info Alert'
+    #     text: |
+    #       *Alert:* {{ .GroupLabels.alertname }}
+    #       *Service:* {{ .GroupLabels.service }}
+    #       *Summary:* {{ .CommonAnnotations.summary }}
+    #     send_resolved: true
+
+  # PagerDuty receiver for critical alerts (configure PAGERDUTY_SERVICE_KEY in .env to enable)
+  - name: 'pagerduty-critical'
+    # pagerduty_configs:
+    #   - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+    #     description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+    #     details:
+    #       firing: '{{ .Alerts.Firing | len }}'
+    #       resolved: '{{ .Alerts.Resolved | len }}'
+    #       service: '{{ .GroupLabels.service }}'
+
+  # Email receiver (configure SMTP settings in .env to enable)
+  - name: 'email'
+    # email_configs:
+    #   - to: 'YOUR_EMAIL@example.com'
+    #     from: 'alerts@kidcomic.example.com'
+    #     smarthost: 'smtp.example.com:587'
+    #     auth_username: 'YOUR_SMTP_USERNAME'
+    #     auth_password: 'YOUR_SMTP_PASSWORD'
+    #     headers:
+    #       Subject: '[StoryMe Alert] {{ .GroupLabels.alertname }}'
+    #     text: |
+    #       Alert: {{ .GroupLabels.alertname }}
+    #       Service: {{ .GroupLabels.service }}
+    #       Severity: {{ .CommonLabels.severity }}
+    #
+    #       Summary: {{ .CommonAnnotations.summary }}
+    #       Description: {{ .CommonAnnotations.description }}
+    #
+    #       {{ range .Alerts }}
+    #       - Alert: {{ .Labels.alertname }}
+    #         Starts: {{ .StartsAt }}
+    #       {{ end }}

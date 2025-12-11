@@ -8,11 +8,11 @@ global:
     cluster: 'kidcomic-dev'
     environment: 'development'
 
-# Alertmanager configuration (optional, for production)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets: ['alertmanager:9093']
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
 
 # Load alerting rules
 rule_files:
