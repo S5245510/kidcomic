@@ -1,0 +1,155 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: story-service-hpa
+  labels:
+    app: story-service
+    tier: backend
+spec:
+  # T092: Scale between 2-10 replicas
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: story-service
+
+  minReplicas: 2   # Minimum for high availability
+  maxReplicas: 10  # Maximum for cost control
+
+  # Scaling metrics
+  metrics:
+    # T092: CPU-based scaling (70% target)
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # Memory-based scaling (80% target)
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+    # Custom metric: Request rate (if available)
+    # Requires Prometheus adapter
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "100"  # Scale when average RPS > 100
+
+  # Scaling behavior configuration
+  behavior:
+    scaleDown:
+      # Stabilization window: Wait 5 minutes before scaling down
+      stabilizationWindowSeconds: 300
+
+      policies:
+        # Don't scale down more than 1 pod per 60 seconds
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+        # Don't reduce by more than 10% per 60 seconds
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+
+      # Use the policy that scales the least
+      selectPolicy: Min
+
+    scaleUp:
+      # Stabilization window: Scale up quickly (no wait)
+      stabilizationWindowSeconds: 0
+
+      policies:
+        # Can scale up by 2 pods per 60 seconds
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+        # Or by 50% per 60 seconds (whichever is more)
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+
+      # Use the policy that scales the most
+      selectPolicy: Max
+
+---
+# PodDisruptionBudget to ensure availability during disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: story-service-pdb
+  labels:
+    app: story-service
+spec:
+  # At least 1 pod must always be available during disruptions
+  minAvailable: 1
+
+  selector:
+    matchLabels:
+      app: story-service
+
+---
+# NetworkPolicy for security (optional)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: story-service-network-policy
+  labels:
+    app: story-service
+spec:
+  podSelector:
+    matchLabels:
+      app: story-service
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress: Allow traffic from API Gateway
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: default
+        - podSelector:
+            matchLabels:
+              app: traefik
+      ports:
+        - protocol: TCP
+          port: 8000
+
+  # Egress: Allow traffic to database and consul
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: story-db
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    - to:
+        - podSelector:
+            matchLabels:
+              app: consul
+      ports:
+        - protocol: TCP
+          port: 8500
+
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53

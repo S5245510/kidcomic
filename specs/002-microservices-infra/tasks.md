@@ -194,38 +194,38 @@ Per plan.md Project Structure:
 
 ### Tests for User Story 3
 
-- [ ] T073 [P] [US3] Integration test for CI/CD pipeline in tests/integration/test_ci_pipeline.py (trigger pipeline, verify stages execute in order)
-- [ ] T074 [P] [US3] Test for zero-downtime deployment in tests/integration/test_zero_downtime_deploy.py (deploy new version, verify no request failures)
-- [ ] T075 [P] [US3] Test for automated rollback in tests/integration/test_auto_rollback.py (deploy bad version, verify rollback triggered)
+- [x] T073 [P] [US3] Integration test for CI/CD pipeline in tests/integration/test_ci_pipeline.py (trigger pipeline, verify stages execute in order)
+- [x] T074 [P] [US3] Test for zero-downtime deployment in tests/integration/test_zero_downtime_deploy.py (deploy new version, verify no request failures)
+- [x] T075 [P] [US3] Test for automated rollback in tests/integration/test_auto_rollback.py (deploy bad version, verify rollback triggered)
 
 ### GitHub Actions CI/CD Pipeline (FR-016 to FR-023)
 
-- [ ] T076 [US3] Create Story Service CI workflow in .github/workflows/story-service-ci.yml (triggers on commits to services/story-service/**)
-- [ ] T077 [US3] Implement lint stage in .github/workflows/story-service-ci.yml (flake8, black, mypy on Windows runner)
-- [ ] T078 [US3] Implement unit test stage in .github/workflows/story-service-ci.yml (pytest with coverage, fail if coverage <80%)
-- [ ] T079 [US3] Implement integration test stage in .github/workflows/story-service-ci.yml (pytest + Testcontainers, FR-017)
-- [ ] T080 [US3] Implement security scan stage in .github/workflows/story-service-ci.yml (safety check, Trivy container scan, FR-017)
-- [ ] T081 [US3] Implement contract compatibility check stage in .github/workflows/story-service-ci.yml (validate API contract against dependencies, FR-021)
-- [ ] T082 [US3] Implement Docker build stage in .github/workflows/story-service-ci.yml (build image tagged with commit SHA and version)
-- [ ] T083 [US3] Implement deployment stage in .github/workflows/story-service-ci.yml (deploy to staging with blue-green strategy, FR-019)
+- [x] T076 [US3] Create Story Service CI workflow in .github/workflows/story-service-ci.yml (triggers on commits to services/story-service/**)
+- [x] T077 [US3] Implement lint stage in .github/workflows/story-service-ci.yml (flake8, black, mypy on Windows runner)
+- [x] T078 [US3] Implement unit test stage in .github/workflows/story-service-ci.yml (pytest with coverage, fail if coverage <80%)
+- [x] T079 [US3] Implement integration test stage in .github/workflows/story-service-ci.yml (pytest + Testcontainers, FR-017)
+- [x] T080 [US3] Implement security scan stage in .github/workflows/story-service-ci.yml (safety check, Trivy container scan, FR-017)
+- [x] T081 [US3] Implement contract compatibility check stage in .github/workflows/story-service-ci.yml (validate API contract against dependencies, FR-021)
+- [x] T082 [US3] Implement Docker build stage in .github/workflows/story-service-ci.yml (build image tagged with commit SHA and version)
+- [x] T083 [US3] Implement deployment stage in .github/workflows/story-service-ci.yml (deploy to staging with blue-green strategy, FR-019)
 
 ### Deployment Automation
 
-- [ ] T084 [US3] Create blue-green deployment script in infrastructure/ci-cd/scripts/deploy-blue-green.ps1 (launch green instances, health check, switch traffic, keep blue for rollback)
-- [ ] T085 [US3] Create rolling deployment script in infrastructure/ci-cd/scripts/deploy-rolling.ps1 (update instances one at a time, health check between updates)
-- [ ] T086 [US3] Implement health monitoring during deployment in infrastructure/ci-cd/scripts/monitor-deployment.ps1 (check error rate <5%, latency <500ms p95 for 10 minutes post-deploy)
-- [ ] T087 [US3] Implement automated rollback script in infrastructure/ci-cd/scripts/auto-rollback.ps1 (rollback to previous version if health checks fail, FR-020)
+- [x] T084 [US3] Create blue-green deployment script in infrastructure/ci-cd/scripts/deploy-blue-green.ps1 (launch green instances, health check, switch traffic, keep blue for rollback)
+- [x] T085 [US3] Create rolling deployment script in infrastructure/ci-cd/scripts/deploy-rolling.ps1 (update instances one at a time, health check between updates)
+- [x] T086 [US3] Implement health monitoring during deployment in infrastructure/ci-cd/scripts/monitor-deployment.ps1 (check error rate <5%, latency <500ms p95 for 10 minutes post-deploy)
+- [x] T087 [US3] Implement automated rollback script in infrastructure/ci-cd/scripts/auto-rollback.ps1 (rollback to previous version if health checks fail, FR-020)
 
 ### Deployment History Tracking
 
-- [ ] T088 [US3] Create deployment history logger in infrastructure/ci-cd/scripts/log-deployment.ps1 (record service, version, commit SHA, timestamp, status to deployment-history.json, FR-022)
-- [ ] T089 [US3] Implement deployment dashboard in infrastructure/observability/grafana/dashboards/deployments.json (show deployment history, success rate, rollback frequency)
+- [x] T088 [US3] Create deployment history logger in infrastructure/ci-cd/scripts/log-deployment.ps1 (record service, version, commit SHA, timestamp, status to deployment-history.json, FR-022)
+- [x] T089 [US3] Implement deployment dashboard in infrastructure/observability/grafana/dashboards/deployments.json (show deployment history, success rate, rollback frequency)
 
 ### Kubernetes Deployment Configuration (Production)
 
-- [ ] T090 [P] [US3] Create Story Service Deployment manifest in infrastructure/kubernetes/story-service-deployment.yml (3 replicas, liveness/readiness probes, resource limits)
-- [ ] T091 [P] [US3] Create Story Service Service manifest in infrastructure/kubernetes/story-service-service.yml (ClusterIP, port 8000)
-- [ ] T092 [P] [US3] Create Story Service HorizontalPodAutoscaler in infrastructure/kubernetes/story-service-hpa.yml (scale 2-10 replicas, CPU 70% target)
+- [x] T090 [P] [US3] Create Story Service Deployment manifest in infrastructure/kubernetes/story-service-deployment.yml (3 replicas, liveness/readiness probes, resource limits)
+- [x] T091 [P] [US3] Create Story Service Service manifest in infrastructure/kubernetes/story-service-service.yml (ClusterIP, port 8000)
+- [x] T092 [P] [US3] Create Story Service HorizontalPodAutoscaler in infrastructure/kubernetes/story-service-hpa.yml (scale 2-10 replicas, CPU 70% target)
 
 ### Validation
 

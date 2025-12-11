@@ -1,0 +1,176 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: story-service
+  labels:
+    app: story-service
+    tier: backend
+    service: story-service
+    version: v0.1.0
+spec:
+  # T090: 3 replicas for high availability
+  replicas: 3
+
+  # Deployment strategy: RollingUpdate for zero-downtime
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Allow 1 extra pod during update
+      maxUnavailable: 0  # No pods unavailable during update (zero-downtime)
+
+  selector:
+    matchLabels:
+      app: story-service
+
+  template:
+    metadata:
+      labels:
+        app: story-service
+        tier: backend
+        service: story-service
+      annotations:
+        # Prometheus scraping
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      # Service account for RBAC
+      serviceAccountName: story-service
+
+      # Pod anti-affinity for availability (spread across nodes)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: story-service
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: story-service
+          image: ghcr.io/s5245510/kidcomic/story-service:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # T090: Environment variables
+          env:
+            - name: SERVICE_ENV
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: LOG_FORMAT
+              value: "json"
+            - name: POSTGRES_HOST
+              value: "story-db-service"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: story-db-credentials
+                  key: database
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: story-db-credentials
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: story-db-credentials
+                  key: password
+            - name: CONSUL_HOST
+              value: "consul-service"
+            - name: CONSUL_PORT
+              value: "8500"
+            - name: TRACE_ENDPOINT
+              value: "http://tempo-service:4317"
+            - name: TRACING_ENABLED
+              value: "true"
+
+          # T090: Resource limits (per FR-001: Infrastructure capacity planning)
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          # T090: Liveness probe (restart if unhealthy)
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+
+          # T090: Readiness probe (don't send traffic until ready)
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+
+          # Startup probe (for slow-starting containers)
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 30  # 30 * 5s = 150s max startup time
+
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30
+
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      # Image pull secrets (for private registry)
+      imagePullSecrets:
+        - name: github-registry-secret
+
+---
+# ServiceAccount for Story Service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: story-service
+  labels:
+    app: story-service
+
+---
+# Secret for database credentials (should be created separately in production)
+# This is a placeholder - use Sealed Secrets or external secrets in production
+apiVersion: v1
+kind: Secret
+metadata:
+  name: story-db-credentials
+type: Opaque
+stringData:
+  database: "story_db"
+  username: "kidcomic"
+  password: "changeme"  # REPLACE WITH SECURE PASSWORD IN PRODUCTION
