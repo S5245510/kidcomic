@@ -246,13 +246,13 @@ Per plan.md Project Structure:
 
 ### Tests for User Story 4
 
-- [ ] T097 [P] [US4] Contract test for API versioning in tests/contract/test_api_versioning.py (verify /v1/stories and /v2/stories both work)
-- [ ] T098 [P] [US4] Integration test for multi-version deployment in tests/integration/test_multi_version_deploy.py (deploy v2, verify v1 still accessible)
-- [ ] T099 [P] [US4] Integration test for contract validation in tests/integration/test_contract_validation.py (verify breaking changes detected before deployment)
+- [x] T097 [P] [US4] Contract test for API versioning in tests/contract/test_api_versioning.py (verify /v1/stories and /v2/stories both work)
+- [x] T098 [P] [US4] Integration test for multi-version deployment in tests/integration/test_multi_version_deploy.py (deploy v2, verify v1 still accessible)
+- [x] T099 [P] [US4] Integration test for contract validation in tests/integration/test_contract_validation.py (verify breaking changes detected before deployment)
 
 ### API Versioning Infrastructure
 
-- [ ] T100 [US4] Implement semantic versioning enforcement in infrastructure/ci-cd/scripts/validate-semver.ps1 (parse version from git tags, validate MAJOR.MINOR.PATCH format, FR-024)
+- [x] T100 [US4] Implement semantic versioning enforcement in infrastructure/ci-cd/scripts/validate-semver.ps1 (parse version from git tags, validate MAJOR.MINOR.PATCH format, FR-024)
 - [ ] T101 [US4] Implement breaking change detection in infrastructure/ci-cd/scripts/detect-breaking-changes.ps1 (compare OpenAPI schemas, flag breaking changes, require MAJOR version bump, FR-025)
 - [ ] T102 [US4] Create API contract registry in infrastructure/ci-cd/contracts-registry/ (store OpenAPI schemas per service/version, FR-027)
 
