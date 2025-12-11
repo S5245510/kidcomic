@@ -15,7 +15,15 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter with trace_id support"""
 
     def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
-        super().add_fields(log_record, record, message_dict)
+        try:
+            super().add_fields(log_record, record, message_dict)
+        except KeyError as e:
+            # Gracefully handle missing fields during concurrent requests
+            # This occurs when rename_fields tries to access fields not yet populated
+            if 'levelname' not in log_record:
+                log_record['levelname'] = record.levelname
+            if 'name' not in log_record:
+                log_record['name'] = record.name
 
         # Add timestamp in ISO 8601 format (FR-010)
         log_record["timestamp"] = datetime.utcnow().isoformat() + "Z"
