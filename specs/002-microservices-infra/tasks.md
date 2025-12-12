@@ -270,8 +270,8 @@ Per plan.md Project Structure:
 
 ### Gradual Rollout (FR-032)
 
-- [ ] T109 [US4] Implement canary deployment script in infrastructure/ci-cd/scripts/deploy-canary.ps1 (deploy v2 to 10% traffic, monitor metrics, increase to 50%, then 100%)
-- [ ] T110 [US4] Implement traffic splitting configuration in services/api-gateway/middlewares/traffic-split.yml (Traefik weighted routing, 90% v1 / 10% v2 initially)
+- [x] T109 [US4] Implement canary deployment script in infrastructure/ci-cd/scripts/deploy-canary.ps1 (deploy v2 to 10% traffic, monitor metrics, increase to 50%, then 100%) ✅ 2025-12-12
+- [x] T110 [US4] Implement traffic splitting configuration in services/api-gateway/middlewares/traffic-split.yml (Traefik weighted routing, 90% v1 / 10% v2 initially) ✅ 2025-12-12
 
 ### Service Registry with Versioning
 

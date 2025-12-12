@@ -1,0 +1,115 @@
+# Traefik Traffic Splitting Configuration
+# Per T110 [US4]: Implements FR-032 gradual rollout capability
+# Weighted routing for canary deployments: 90% stable / 10% canary initially
+
+http:
+  # Weighted service for traffic splitting
+  services:
+    # Story Service with weighted traffic distribution
+    story-service-weighted:
+      weighted:
+        services:
+          - name: story-service-stable
+            weight: 90  # 90% of traffic to stable version
+          - name: story-service-canary
+            weight: 10  # 10% of traffic to canary version
+
+    # Stable version backend
+    story-service-stable:
+      loadBalancer:
+        servers:
+          - url: "http://story-service:8000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+          scheme: "http"
+
+    # Canary version backend
+    story-service-canary:
+      loadBalancer:
+        servers:
+          - url: "http://story-service-canary:8000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+          scheme: "http"
+
+  # Routers for traffic splitting
+  routers:
+    # Story Service V1 with traffic splitting
+    story-service-v1-weighted:
+      rule: "PathPrefix(`/v1/stories`)"
+      service: "story-service-weighted"
+      entryPoints:
+        - "web"
+      middlewares:
+        - "standard-chain"
+      priority: 200  # Higher priority than default routes
+
+    # Story Service V2 with traffic splitting
+    story-service-v2-weighted:
+      rule: "PathPrefix(`/v2/stories`)"
+      service: "story-service-weighted"
+      entryPoints:
+        - "web"
+      middlewares:
+        - "standard-chain"
+      priority: 200  # Higher priority than default routes
+
+  # Middlewares for canary deployment
+  middlewares:
+    # Canary header detection (optional)
+    # Allow users to opt-in to canary version with header
+    canary-header:
+      headers:
+        customRequestHeaders:
+          X-Canary-Version: "true"
+
+    # Rate limiting specific to canary
+    # Protect canary from overload during rollout
+    canary-rate-limit:
+      rateLimit:
+        average: 5  # Lower rate limit for canary
+        period: "1s"
+        burst: 10
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
+
+# Usage Instructions:
+#
+# 1. Initial Deployment (10% canary):
+#    - Set weights: stable: 90, canary: 10
+#    - Monitor metrics for 5 minutes
+#    - Check error rate, latency, throughput
+#
+# 2. Medium Rollout (50% canary):
+#    - Update weights: stable: 50, canary: 50
+#    - Monitor metrics for 5 minutes
+#    - Verify both versions handle load equally
+#
+# 3. Full Rollout (100% canary):
+#    - Update weights: stable: 0, canary: 100
+#    - Promote canary to stable
+#    - Stop old stable version
+#
+# 4. Rollback Procedure:
+#    - Set weights: stable: 100, canary: 0
+#    - Stop canary version
+#    - Investigate issues in canary
+#
+# Monitoring Queries (Prometheus):
+#
+# Error Rate by Version:
+# rate(http_requests_total{service="story-service",status=~"5.."}[5m]) / rate(http_requests_total{service="story-service"}[5m]) * 100
+#
+# P95 Latency by Version:
+# histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service="story-service"}[5m])) * 1000
+#
+# Request Distribution:
+# sum(rate(http_requests_total{service="story-service"}[5m])) by (version)
+#
+# Health Status:
+# up{job="story-service"}
