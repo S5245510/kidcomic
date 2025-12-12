@@ -161,28 +161,41 @@ def register_service(
 ) -> ServiceRegistry:
     """
     Convenience function to register a service with Consul
+    Per T111 [US4]: Registers service with version tags for version-aware discovery
 
     Note: This registers services for Consul-based service discovery, primarily
     for Prometheus scraping. Traefik routing continues to use Docker labels.
 
     Args:
-        service_name: Name of the service
+        service_name: Name of the service (e.g., "story-service")
         service_port: Port the service listens on
-        version: Service version
+        version: Service version (e.g., "v1.0.0", "v2.0.0")
         environment: Deployment environment
         enable_prometheus_discovery: Enable Prometheus service discovery tags
 
     Returns:
         ServiceRegistry instance (call .deregister() on shutdown)
+
+    Examples:
+        # Register story-service v1.0.0
+        registry = register_service("story-service", 8000, version="v1.0.0")
+
+        # Register story-service v2.0.0 (both can run simultaneously)
+        registry = register_service("story-service", 8100, version="v2.0.0")
     """
     registry = ServiceRegistry(
         consul_host=os.getenv("CONSUL_HOST", "consul"),
         consul_port=int(os.getenv("CONSUL_PORT", "8500"))
     )
 
+    # Version-aware service registration (T111)
+    # Format: service-name:version (e.g., "story-service:v1.0.0")
+    versioned_service_name = f"{service_name}:{version}"
+
     tags = [
         f"version:{version}",
-        f"environment:{environment}"
+        f"environment:{environment}",
+        "traefik.enable=true"  # Enable Traefik discovery
     ]
 
     # Add Prometheus discovery tags if enabled
@@ -199,11 +212,13 @@ def register_service(
         "version": version,
         "environment": environment,
         "metrics_path": "/metrics/",
-        "prometheus_port": str(service_port)
+        "prometheus_port": str(service_port),
+        "service_name": service_name  # Store base service name
     }
 
+    # Register with versioned service name
     registry.register(
-        service_name=service_name,
+        service_name=versioned_service_name,
         service_port=service_port,
         tags=tags,
         meta=meta

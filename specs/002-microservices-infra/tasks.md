@@ -275,8 +275,8 @@ Per plan.md Project Structure:
 
 ### Service Registry with Versioning
 
-- [ ] T111 [US4] Update Consul registration to include version tags in shared/lib-config/src/service_registry.py (register as story-service:v1.0.0, story-service:v2.0.0)
-- [ ] T112 [US4] Implement version-aware service discovery in shared/lib-config/src/service_discovery.py (lookup services by name and version range, e.g., "story-service >=v1.0.0 <v2.0.0")
+- [x] T111 [US4] Update Consul registration to include version tags in shared/lib-config/service_registry.py (register as story-service:v1.0.0, story-service:v2.0.0) ✅ 2025-12-12
+- [x] T112 [US4] Implement version-aware service discovery in shared/lib-config/service_discovery.py (lookup services by name and version range, e.g., "story-service >=v1.0.0 <v2.0.0") ✅ 2025-12-12
 
 ### Validation
 
