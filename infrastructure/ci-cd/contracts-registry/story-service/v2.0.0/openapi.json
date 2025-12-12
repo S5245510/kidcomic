@@ -1,0 +1,235 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Story Service API",
+    "version": "2.0.0",
+    "description": "Story management service for StoryMe application (v2 with breaking changes)"
+  },
+  "paths": {
+    "/stories": {
+      "get": {
+        "summary": "List all stories",
+        "operationId": "list_stories_v2",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryListV2"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No stories found"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new story",
+        "operationId": "create_story_v2",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoryCreateV2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Story created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stories/{story_id}": {
+      "get": {
+        "summary": "Get story by ID",
+        "operationId": "get_story_v2",
+        "parameters": [
+          {
+            "name": "story_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryV2"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Story not found"
+          }
+        }
+      }
+    },
+    "/stories/search": {
+      "get": {
+        "summary": "Search stories (NEW in v2)",
+        "operationId": "search_stories",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryListV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health_check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StoryV2": {
+        "type": "object",
+        "required": ["id", "title", "body"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique story identifier"
+          },
+          "title": {
+            "type": "string",
+            "description": "Story title"
+          },
+          "body": {
+            "type": "string",
+            "description": "Story body (renamed from 'content' in v1 - BREAKING CHANGE)"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Story metadata (NEW in v2)",
+            "properties": {
+              "author": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp (NEW in v2)"
+          }
+        }
+      },
+      "StoryCreateV2": {
+        "type": "object",
+        "required": ["title", "body"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Story title"
+          },
+          "body": {
+            "type": "string",
+            "description": "Story body (renamed from 'content')"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional story metadata",
+            "properties": {
+              "author": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StoryListV2": {
+        "type": "object",
+        "required": ["data", "pagination"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoryV2"
+            },
+            "description": "Array of stories (changed from 'stories' in v1 - BREAKING CHANGE)"
+          },
+          "pagination": {
+            "type": "object",
+            "required": ["total", "page", "page_size"],
+            "properties": {
+              "total": {
+                "type": "integer",
+                "description": "Total number of stories"
+              },
+              "page": {
+                "type": "integer",
+                "description": "Current page number"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "Number of items per page"
+              }
+            },
+            "description": "Pagination metadata (NEW in v2)"
+          }
+        }
+      }
+    }
+  }
+}

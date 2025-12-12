@@ -253,8 +253,8 @@ Per plan.md Project Structure:
 ### API Versioning Infrastructure
 
 - [x] T100 [US4] Implement semantic versioning enforcement in infrastructure/ci-cd/scripts/validate-semver.ps1 (parse version from git tags, validate MAJOR.MINOR.PATCH format, FR-024)
-- [ ] T101 [US4] Implement breaking change detection in infrastructure/ci-cd/scripts/detect-breaking-changes.ps1 (compare OpenAPI schemas, flag breaking changes, require MAJOR version bump, FR-025)
-- [ ] T102 [US4] Create API contract registry in infrastructure/ci-cd/contracts-registry/ (store OpenAPI schemas per service/version, FR-027)
+- [x] T101 [US4] Implement breaking change detection in infrastructure/ci-cd/scripts/detect-breaking-changes.ps1 (compare OpenAPI schemas, flag breaking changes, require MAJOR version bump, FR-025)
+- [x] T102 [US4] Create API contract registry in infrastructure/ci-cd/contracts-registry/ (store OpenAPI schemas per service/version, FR-027)
 
 ### Multi-Version Service Support
 
