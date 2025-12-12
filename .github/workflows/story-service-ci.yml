@@ -157,7 +157,7 @@ jobs:
         working-directory: services/story-service
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio testcontainers
+          pip install pytest pytest-asyncio testcontainers Pillow requests
           pip install -r requirements.txt
 
       - name: Run integration tests
@@ -165,6 +165,20 @@ jobs:
         run: |
           pytest tests/integration/ -v --tb=short
         timeout-minutes: 15  # Testcontainers can be slow
+
+      - name: Run service contract validation (T108)
+        working-directory: .
+        run: |
+          # Run contract validation tests with proper environment
+          $env:GATEWAY_URL = "http://localhost"
+          $env:STORY_SERVICE_URL = "http://localhost:8000"
+          $env:PAYMENT_SERVICE_URL = "http://localhost:8002"
+          $env:PHOTO_SERVICE_URL = "http://localhost:8001"
+
+          pytest tests/integration/test_service_contracts.py -v --tb=short -m integration
+        timeout-minutes: 10
+        continue-on-error: true  # Don't block deployment initially (Level 1→2 migration)
+        # TODO: After 3-6 months, change to continue-on-error: false to enforce contract tests (FR-030 Level 2)
 
   # T080: Security scan stage
   security-scan:

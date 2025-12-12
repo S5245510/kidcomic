@@ -264,9 +264,9 @@ Per plan.md Project Structure:
 
 ### Service Contract Validation (FR-030 - Level 1 & Level 2)
 
-- [ ] T106 [US4] Create manual integration testing checklist in infrastructure/ci-cd/checklists/integration-checklist.md (Level 1 approach per research.md, for beginner teams)
-- [ ] T107 [US4] Implement automated integration test suite in tests/integration/test_service_contracts.py (Level 2 approach, verify Story Service can call Payment Service, Photo Service with expected contracts)
-- [ ] T108 [US4] Configure integration tests to run in CI pipeline in .github/workflows/story-service-ci.yml (block deployment if integration tests fail, FR-030 Level 2)
+- [x] T106 [US4] Create manual integration testing checklist in infrastructure/ci-cd/checklists/integration-checklist.md (Level 1 approach per research.md, for beginner teams) ✅ 2025-12-12
+- [x] T107 [US4] Implement automated integration test suite in tests/integration/test_service_contracts.py (Level 2 approach, verify Story Service can call Payment Service, Photo Service with expected contracts) ✅ 2025-12-12
+- [x] T108 [US4] Configure integration tests to run in CI pipeline in .github/workflows/story-service-ci.yml (block deployment if integration tests fail, FR-030 Level 2) ✅ 2025-12-12
 
 ### Gradual Rollout (FR-032)
 
