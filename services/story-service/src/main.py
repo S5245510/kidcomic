@@ -2,8 +2,10 @@
 Story Service Main Application
 Per T036 [US1]: FastAPI app with /health, /ready, /stories endpoints
 Per T038 [US1]: Integrated with observability libraries (logging, metrics, tracing)
+Per T103-T104 [US4]: Multi-version API support (v1 and v2)
 
 Implements contracts/story-service-openapi.yml
+Supports API versioning for backward compatibility
 """
 
 import os
@@ -28,9 +30,13 @@ from lib_config.service_registry import register_service
 # Import health endpoints
 from .health import router as health_router, initialize_health_checks
 
+# Import versioned API routers
+from .api.v1 import router as v1_router
+from .api.v2 import router as v2_router
+
 # Configuration
 SERVICE_NAME = "story-service"
-SERVICE_VERSION = "v0.1.0"
+SERVICE_VERSION = "v2.0.0"  # Updated for multi-version support
 SERVICE_PORT = int(os.getenv("STORY_SERVICE_PORT", "8000"))
 
 # Initialize configuration
@@ -79,55 +85,13 @@ instrument_fastapi(app)
 # Include health check routes
 app.include_router(health_router, tags=["Health"])
 
+# Include versioned API routers
+app.include_router(v1_router, tags=["API v1"])
+app.include_router(v2_router, tags=["API v2"])
+
 # Mount metrics endpoint
 metrics_app = get_metrics_app()
 app.mount("/metrics", metrics_app)
-
-
-# Data Models
-class Story(BaseModel):
-    """Story model"""
-    id: int
-    title: str
-    content: str
-    age_range: str = Field(..., description="Target age range (e.g., '3-5', '6-8')")
-    moral_lesson: Optional[str] = None
-    created_at: Optional[str] = None
-
-
-class StoryList(BaseModel):
-    """List of stories"""
-    stories: List[Story]
-    total: int
-
-
-# In-memory story data (stub - will be replaced with database in Phase 2)
-SAMPLE_STORIES = [
-    Story(
-        id=1,
-        title="The Brave Little Turtle",
-        content="Once upon a time, there was a brave little turtle who lived by the sea...",
-        age_range="3-5",
-        moral_lesson="Courage comes in all sizes",
-        created_at="2024-01-01T00:00:00Z"
-    ),
-    Story(
-        id=2,
-        title="The Magic Paintbrush",
-        content="In a small village, there lived a young artist who discovered a magic paintbrush...",
-        age_range="6-8",
-        moral_lesson="Use your talents to help others",
-        created_at="2024-01-02T00:00:00Z"
-    ),
-    Story(
-        id=3,
-        title="The Friendly Dragon",
-        content="High in the mountains lived a dragon who just wanted to make friends...",
-        age_range="4-6",
-        moral_lesson="Don't judge by appearances",
-        created_at="2024-01-03T00:00:00Z"
-    )
-]
 
 
 # Middleware for trace_id propagation
@@ -203,120 +167,30 @@ async def shutdown_event():
     logger.info(f"{SERVICE_NAME} shutdown complete")
 
 
-# API Endpoints
+# Root endpoint
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint - API version discovery"""
     return {
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
         "status": "running",
+        "api_versions": ["v1", "v2"],
         "endpoints": {
-            "stories": "/stories/",
-            "story_detail": "/stories/{story_id}",
+            "v1_stories": "/v1/stories",
+            "v2_stories": "/v2/stories",
+            "v2_search": "/v2/stories/search",
             "health": "/health",
             "ready": "/ready",
             "metrics": "/metrics",
             "docs": "/docs"
-        }
-    }
-
-
-@app.get("/stories/", response_model=StoryList)
-async def list_stories(
-    request: Request,
-    age_range: Optional[str] = None,
-    limit: int = 100,
-    offset: int = 0
-):
-    """
-    List all stories
-
-    Per contracts/story-service-openapi.yml: GET /stories/
-    """
-    trace_id = getattr(request.state, "trace_id", None)
-    logger_ctx = get_logger_with_trace(__name__, trace_id=trace_id)
-
-    logger_ctx.info(
-        "Listing stories",
-        extra={"age_range": age_range, "limit": limit, "offset": offset}
-    )
-
-    # Filter by age_range if provided
-    stories = SAMPLE_STORIES
-    if age_range:
-        stories = [s for s in stories if s.age_range == age_range]
-
-    # Apply pagination
-    total = len(stories)
-    stories = stories[offset:offset + limit]
-
-    logger_ctx.info(f"Returning {len(stories)} stories (total: {total})")
-
-    return StoryList(stories=stories, total=total)
-
-
-@app.get("/stories/{story_id}", response_model=Story)
-async def get_story(request: Request, story_id: int):
-    """
-    Get a specific story by ID
-
-    Per contracts/story-service-openapi.yml: GET /stories/{story_id}
-    """
-    trace_id = getattr(request.state, "trace_id", None)
-    logger_ctx = get_logger_with_trace(__name__, trace_id=trace_id)
-
-    logger_ctx.info(f"Fetching story", extra={"story_id": story_id})
-
-    # Find story
-    story = next((s for s in SAMPLE_STORIES if s.id == story_id), None)
-
-    if not story:
-        logger_ctx.warning(f"Story not found", extra={"story_id": story_id})
-        raise HTTPException(status_code=404, detail=f"Story {story_id} not found")
-
-    logger_ctx.info(f"Story found", extra={"story_id": story_id, "title": story.title})
-
-    return story
-
-
-@app.post("/stories/{story_id}/personalize")
-async def personalize_story(
-    request: Request,
-    story_id: int,
-    child_name: str,
-    child_photo_url: Optional[str] = None
-):
-    """
-    Personalize a story with child's name and photo
-
-    Per contracts/story-service-openapi.yml: POST /stories/{story_id}/personalize
-    """
-    trace_id = getattr(request.state, "trace_id", None)
-    logger_ctx = get_logger_with_trace(__name__, trace_id=trace_id)
-
-    logger_ctx.info(
-        "Personalizing story",
-        extra={"story_id": story_id, "child_name": child_name}
-    )
-
-    # Find story
-    story = next((s for s in SAMPLE_STORIES if s.id == story_id), None)
-
-    if not story:
-        raise HTTPException(status_code=404, detail=f"Story {story_id} not found")
-
-    # Personalize content (simple replacement for MVP)
-    personalized_content = story.content.replace("little", child_name)
-
-    logger_ctx.info(f"Story personalized successfully", extra={"story_id": story_id})
-
-    return {
-        "story_id": story_id,
-        "title": story.title,
-        "personalized_content": personalized_content,
-        "child_name": child_name,
-        "trace_id": trace_id
+        },
+        "breaking_changes_v2": [
+            "StoryList uses 'data' instead of 'stories'",
+            "Story uses 'body' instead of 'content'",
+            "Added pagination metadata",
+            "Added story search endpoint"
+        ]
     }
 
 

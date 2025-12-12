@@ -75,3 +75,37 @@ http:
           - compression
           - cors-permissive
           - rate-limit-standard
+
+  # Versioned API Routing (T105)
+  routers:
+    # Story Service v1 API
+    story-service-v1:
+      rule: "PathPrefix(`/v1/stories`)"
+      service: "story-service"
+      entryPoints:
+        - "web"
+      middlewares:
+        - "standard-chain"
+      priority: 100  # Higher priority for specific versioned paths
+
+    # Story Service v2 API
+    story-service-v2:
+      rule: "PathPrefix(`/v2/stories`)"
+      service: "story-service"
+      entryPoints:
+        - "web"
+      middlewares:
+        - "standard-chain"
+      priority: 100  # Higher priority for specific versioned paths
+
+  # Services (backend endpoints)
+  services:
+    story-service:
+      loadBalancer:
+        servers:
+          - url: "http://story-service:8000"
+        healthCheck:
+          path: "/health"
+          interval: "10s"
+          timeout: "3s"
+          scheme: "http"

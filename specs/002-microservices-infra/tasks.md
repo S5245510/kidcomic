@@ -258,9 +258,9 @@ Per plan.md Project Structure:
 
 ### Multi-Version Service Support
 
-- [ ] T103 [US4] Update Story Service to support /v1/ and /v2/ endpoints in services/story-service/src/main.py (versioned routers)
-- [ ] T104 [US4] Implement v1 compatibility layer in services/story-service/src/api/v1/ (maintain old API contract while v2 uses new contract)
-- [ ] T105 [US4] Update Traefik routing to support versioned paths in services/api-gateway/traefik.yml (route /v1/stories to v1 endpoints, /v2/stories to v2 endpoints)
+- [x] T103 [US4] Update Story Service to support /v1/ and /v2/ endpoints in services/story-service/src/main.py (versioned routers) ✅ 2025-12-12
+- [x] T104 [US4] Implement v1 compatibility layer in services/story-service/src/api/v1/ (maintain old API contract while v2 uses new contract) ✅ 2025-12-12
+- [x] T105 [US4] Update Traefik routing to support versioned paths in services/api-gateway/traefik.yml (route /v1/stories to v1 endpoints, /v2/stories to v2 endpoints) ✅ 2025-12-12
 
 ### Service Contract Validation (FR-030 - Level 1 & Level 2)
 
